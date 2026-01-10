@@ -12,6 +12,10 @@ def get_recipe_service():
 def get_ai_service():
     return AiService()
 
+import httpx
+
+# ... existing imports ...
+
 @router.post("/parse", response_model=RecipeData)
 async def parse_recipe(
     request: ParseRequest,
@@ -19,12 +23,17 @@ async def parse_recipe(
 ):
     if request.text:
         return await ai_service.parse_recipe(request.text)
-    # Handle URL fetching later if needed (simple requests.get)
+    
     if request.url:
-         # Placeholder for URL fetching
-         # content = fetch_url(request.url)
-         # return await ai_service.parse_recipe(content)
-         pass
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(request.url, follow_redirects=True, timeout=10.0)
+                resp.raise_for_status()
+                content = resp.text
+                return await ai_service.parse_recipe(content)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+            
     raise HTTPException(status_code=400, detail="No text or URL provided")
 
 @router.get("/", response_model=list[Recipe])
