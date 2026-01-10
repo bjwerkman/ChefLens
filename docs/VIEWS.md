@@ -1,0 +1,3 @@
+1. Please check the @ARCHITECTURE.md I want you to act as a senior solution architect. Based on the current application, update the document with the current application details in the specific placeholders
+2. As the senior solution architect, I want you to describe all the Views you have designed in such level of detail that this file can be used to rebuild the Views. Stuctured text, clear chapters and sub-chapters
+3. As the senior  architect i want you to describe all the Design principles and details at such a level of detail that this file can be used to rebuild the Design. Stuctured text, clear chapters and sub-chapters
