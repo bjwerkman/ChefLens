@@ -1,7 +1,7 @@
 import flet as ft
 from app.frontend.state import AppState
 
-def LoginView(page: ft.Page):
+def LoginView(page: ft.Page, state: AppState):
     email = ft.TextField(label="Email", width=300)
     password = ft.TextField(label="Password", password=True, can_reveal_password=True, width=300)
     error_text = ft.Text(color=ft.Colors.RED, visible=False)
@@ -16,7 +16,7 @@ def LoginView(page: ft.Page):
             page.update()
             return
 
-        success, msg = await AppState().api.login(email.value, password.value)
+        success, msg = await state.api.login(email.value, password.value)
         if success:
             # Navigate to dashboard manually if using control swapping, 
             # or rely on the main.py router to handle the route change if we used page.go

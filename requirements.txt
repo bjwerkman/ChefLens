@@ -9,3 +9,5 @@ google-generativeai
 git+https://github.com/miaucl/cookidoo-api.git
 python-dotenv
 httpx
+requests
+python-multipart

@@ -139,6 +139,7 @@ class CookidooService:
             annotations = []
             final_text = desc
             
+            # Helper to append text and add annotation
             def add_annot(text_to_append, type_code, data_obj):
                 nonlocal final_text
                 if final_text: final_text += " "
@@ -147,6 +148,59 @@ class CookidooService:
                 annot = {"type": type_code, "position": {"offset": start, "length": len(text_to_append)}, "data": data_obj}
                 annotations.append(annot)
 
+            # 1. Annotate Ingredients within the existing description (Logic: find and annotate)
+            # This must be done on the 'final_text' (which is just 'desc' right now).
+            # We need to find valid ingredients in the text and create annotations for them.
+            # Note: Cookidoo API usually expects the annotations to match range in the final text string.
+            # A simple approach: 
+            #   - Iterate ingredients
+            #   - If ingredient name is found in 'final_text' (case insensitive?), add annotation.
+            #   - BEWARE: overlapping ingredients or multiple occurrences. 
+            #   - Simplest robust way: Find first occurrence, add annotation, track ranges to avoid overlap.
+            
+            # We'll do a pass for ingredients on the 'desc' part BEFORE appending settings
+            existing_annotations_ranges = [] # List of (start, end)
+            
+            # Prepare the full strings map first to link correctly
+            # ing_strings list is created later in the original code, but we need it now for matching
+            # So let's generate it or access it.
+            # We need to correspond the ing object to the string we WILL send.
+            
+            # Refactored: Create the list of formatted strings first so we can refer to them
+            
+            for ing in data_source.ingredients:
+                if not ing.name: continue
+                # Basic search - can be improved with regex or word boundaries
+                pattern = re.compile(re.escape(ing.name), re.IGNORECASE)
+                for match in pattern.finditer(final_text):
+                    start, end = match.span()
+                    # Check overlap
+                    overlap = False
+                    for existing_start, existing_end in existing_annotations_ranges:
+                        if not (end <= existing_start or start >= existing_end):
+                            overlap = True
+                            break
+                    if not overlap:
+                        # Found a new match!
+                        # Add annotation
+                        # FIX: The data structure matches the POC Reference (Working_Recipe.js)
+                        # Structure: data: { description: { text: "FULL STRING", annotations: [] } }
+                        full_ing_text = f"{ing.amount or ''} {ing.unit or ''} {ing.name}".strip()
+                        
+                        annot = {
+                            "type": "INGREDIENT", 
+                            "position": {"offset": start, "length": end - start}, 
+                            "data": {
+                                "description": {
+                                    "text": full_ing_text,
+                                    "annotations": []
+                                }
+                            }
+                        }
+                        annotations.append(annot)
+                        existing_annotations_ranges.append((start, end))
+
+            # 2. Append User Settings (Time/Temp/Speed)
             tts_data = {}
             has_tts = False
             if step.time:
@@ -155,23 +209,54 @@ class CookidooService:
                     tts_data["time"] = seconds
                     has_tts = True
             if step.speed:
-                spd = str(step.speed).lower().replace("speed", "").strip()
+                # Speed cleaning: "Speed 1" -> "1"
+                raw_spd = str(step.speed).lower().replace("speed", "").strip()
+                
+                # Handle common text speeds that might fail numeric validation
+                if "spoon" in raw_spd or "stir" in raw_spd or "soft" in raw_spd:
+                    spd = "1" # Map "spoon" to speed 1 to be safe
+                else:
+                    spd = raw_spd
+                    
                 tts_data["speed"] = spd
                 has_tts = True
             if step.temperature:
+                # Temp cleaning: "100°C" -> "100"
                 val = str(step.temperature).replace("°C", "").replace("C", "").strip()
-                if val.lower() == "varoma": tts_data["temperature"] = {"value": "Varoma", "unit": "C"}
-                else: tts_data["temperature"] = {"value": val, "unit": "C"}
+                if val.lower() == "varoma": 
+                    tts_data["temperature"] = {"value": "Varoma", "unit": "C"}
+                else: 
+                    # Try to parse numeric value
+                    try:
+                       float(val) # just check validity
+                       tts_data["temperature"] = {"value": val, "unit": "C"}
+                    except:
+                       pass # ignore weird temp string
                 has_tts = True
             
             if has_tts:
-                label = f"[{step.time or ''} {step.temperature or ''} {step.speed or ''}]".strip().replace("  ", " ")
-                add_annot(label, "TTS", tts_data)
+                # User requested NO brackets []. 
+                # Construct label like: "5 min 100°C Speed 2"
+                parts = []
+                if step.time: parts.append(step.time)
+                if step.temperature: parts.append(str(step.temperature))
+                if step.speed: 
+                    # Use sanitized 'spd' to ensure consistent formatting (e.g. "Speed 1" instead of "Speed spoon")
+                    parts.append(f"Speed {spd}")
+                
+                label = " ".join(parts)
+                if label:
+                    add_annot(label, "TTS", tts_data)
                 
             if step.mode:
                 mode_data = {}
                 if step.time: mode_data["time"] = self._parse_time(step.time)
-                add_annot(f"[{step.mode}]", "MODE", mode_data)
+                # For modes, we might still want brackets or just the mode name? 
+                # Let's stick to name only.
+                # Common format: "Dough Mode"
+                mode_name = step.mode
+                add_annot(mode_name, "MODE", mode_data)
+                # Fix up the last annotation's name/type if needed
                 annotations[-1]["name"] = self._map_mode(step.mode)
 
             sanitized_instructions.append({"text": final_text, "type": "STEP", "annotations": annotations})

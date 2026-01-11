@@ -20,9 +20,10 @@ class AiService:
            - "Sauté" -> "120°C" unless specified otherwise.
            - "Boil" -> "100°C"
         2. Infer Speed:
-           - "Stir" -> "Speed 1" or "Speed Spoon"
+           - "Stir" -> "Speed 1" (stat: "1") - NEVER use "Speed Spoon" or "Spoon"
            - "Puree" -> "Speed 8-10" (gradual)
            - "Chop" -> "Speed 5"
+           - "Soft" or "Gentle" -> "Speed 1"
         3. Infer Mode:
            - "Knead" or "Dough" -> mode: "Dough"
            - "Turbo" -> mode: "Turbo"

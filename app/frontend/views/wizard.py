@@ -2,7 +2,7 @@ import flet as ft
 from app.frontend.state import AppState
 import json
 
-def WizardView(page: ft.Page):
+def WizardView(page: ft.Page, state: AppState):
     # State for the wizard
     active_recipe_data = {} 
     active_thermomix_data = {}
@@ -10,7 +10,7 @@ def WizardView(page: ft.Page):
     
     # --- Tab 1: Input ---
     # Check login
-    if not AppState().api.user_id:
+    if not state.api.user_id:
         page.snack_bar = ft.SnackBar(ft.Text("Session expired. Please login first."))
         page.snack_bar.open = True
         page.update()
@@ -36,12 +36,14 @@ def WizardView(page: ft.Page):
         url = input_url.value
         
         # Call API
-        result = await AppState().api.parse_recipe(text=text, url=url)
-        
-        # Hide loading
-        progress_ring.visible = False
-        
-        if result:
+        try:
+            result = await state.api.parse_recipe(text=text, url=url)
+            
+            if page.route != "/wizard": return
+
+            # Hide loading
+            progress_ring.visible = False
+            
             status_text.value = "Success! Reviewing data..."
             status_text.color = "green"
             page.update()
@@ -54,9 +56,13 @@ def WizardView(page: ft.Page):
             await asyncio.sleep(0.5)
             
             # Switch tab
-            set_tab(1)
-        else:
-            status_text.value = "Parsing failed. Please check the URL or Text."
+            if page.route == "/wizard":
+                set_tab(1)
+
+        except Exception as e:
+            if page.route != "/wizard": return
+            progress_ring.visible = False
+            status_text.value = f"Parsing failed: {str(e)}"
             status_text.color = "red"
             page.update()
 
@@ -151,9 +157,12 @@ def WizardView(page: ft.Page):
                      return
 
             # Create recipe in Supabase
-            result = await AppState().api.create_recipe(data_to_save)
-            
-            if result:
+            # Create recipe in Supabase
+            try:
+                result = await state.api.create_recipe(data_to_save)
+                
+                if page.route != "/wizard": return
+
                 page.snack_bar = ft.SnackBar(ft.Text("Recipe Saved!"))
                 page.snack_bar.open = True
                 
@@ -165,8 +174,8 @@ def WizardView(page: ft.Page):
                 # Move to Thermomix Tab (2)
                 set_tab(2)
                 page.update()
-            else:
-                page.snack_bar = ft.SnackBar(ft.Text("Failed to save recipe"))
+            except Exception as e:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Failed to save recipe: {e}"))
                 page.snack_bar.open = True
                 page.update()
         except Exception as ex:
@@ -202,19 +211,26 @@ def WizardView(page: ft.Page):
         tm_progress.visible = True
         page.update()
         
-        result = await AppState().api.convert_recipe(current_recipe_id)
-        
-        tm_progress.visible = False
-        
-        if result and result.get("thermomix_data"):
-            tm_status.value = "Conversion Complete!"
-            tm_status.color = "green"
+        try:
+            result = await state.api.convert_recipe(current_recipe_id)
             
-            nonlocal active_thermomix_data
-            active_thermomix_data = result.get("thermomix_data")
-            populate_tm_tab()
-        else:
-            tm_status.value = "Conversion Failed or Empty Data."
+            if page.route != "/wizard": return
+            
+            tm_progress.visible = False
+            
+            if result and result.get("thermomix_data"):
+                tm_status.value = "Conversion Complete!"
+                tm_status.color = "green"
+                
+                nonlocal active_thermomix_data
+                active_thermomix_data = result.get("thermomix_data")
+                populate_tm_tab()
+            else:
+                tm_status.value = "Conversion returned empty data."
+                tm_status.color = "red"
+        except Exception as e:
+            tm_progress.visible = False
+            tm_status.value = f"Conversion Failed: {str(e)}"
             tm_status.color = "red"
         
         page.update()
@@ -279,7 +295,11 @@ def WizardView(page: ft.Page):
     )
 
     # --- Tab 4: Upload ---
-    target_id_field = ft.TextField(label="Target Cookidoo Recipe ID", hint_text="Leave empty to Create New Recipe", width=400)
+    target_id_field = ft.TextField(
+        label="Target Cookidoo Recipe ID", 
+        hint_text="Leave empty to Create New Recipe",
+        expand=True # Fluid width
+    )
     upload_status = ft.Text("", color="blue", visible=False)
     upload_progress = ft.ProgressRing(visible=False)
     
@@ -311,8 +331,10 @@ def WizardView(page: ft.Page):
          e.control.disabled = True
          page.update()
          
-         success, msg = await AppState().api.upload_recipe(current_recipe_id, target_id)
+         success, msg = await state.api.upload_recipe(current_recipe_id, target_id)
          
+         if page.route != "/wizard": return
+
          upload_progress.visible = False
          e.control.disabled = False
          
@@ -353,38 +375,42 @@ def WizardView(page: ft.Page):
     )
 
 
+    # --- Tabs Navigation ---
+    # Mobile-friendly: Scrollable Tabs
+    tabs = ft.Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            ft.Tab(label="1. Input", icon="input"),
+            ft.Tab(label="2. Review", icon="rate_review"),
+            ft.Tab(label="3. Thermomix", icon="settings_applications"),
+            ft.Tab(label="4. Upload", icon="cloud_upload"),
+        ],
+        expand=False, 
+        scrollable=True, # Critical for mobile
+    )
+
     # Content mapping
     tab_contents = [input_tab, review_tab, thermomix_tab, upload_tab]
     
     # Area to display current content
     content_area = ft.Container(content=tab_contents[0], expand=True)
 
-    def set_tab(idx):
+    def on_tab_change(e):
+        idx = tabs.selected_index
+        # Reuse existing set_tab logic but adapt
         content_area.content = tab_contents[idx]
-        
-        # Simple styling
-        c_active = "blue"
-        c_inactive = "grey"
-        
-        b_input.bgcolor = c_active if idx==0 else c_inactive
-        b_review.bgcolor = c_active if idx==1 else c_inactive
-        b_tm.bgcolor = c_active if idx==2 else c_inactive
-        b_upload.bgcolor = c_active if idx==3 else c_inactive
-        
         page.update()
 
-    b_input = ft.ElevatedButton("1. Input", on_click=lambda _: set_tab(0), bgcolor="blue", color="white")
-    b_review = ft.ElevatedButton("2. Review", on_click=lambda _: set_tab(1), bgcolor="grey", color="white")
-    b_tm = ft.ElevatedButton("3. Thermomix", on_click=lambda _: set_tab(2), bgcolor="grey", color="white")
-    b_upload = ft.ElevatedButton("4. Upload", on_click=lambda _: set_tab(3), bgcolor="grey", color="white")
+    tabs.on_change = on_tab_change
 
-    tab_bar = ft.Row(
-        [b_input, b_review, b_tm, b_upload],
-        alignment=ft.MainAxisAlignment.CENTER,
-        spacing=10
-    )
+    # Helper to programmatically switch tabs
+    def set_tab(idx):
+        tabs.selected_index = idx
+        content_area.content = tab_contents[idx]
+        page.update()
 
     page.appbar = ft.AppBar(title=ft.Text("New Recipe Wizard"), bgcolor="surfaceVariant")
     page.floating_action_button = None
 
-    return ft.Column([tab_bar, content_area], expand=True)
+    return ft.Column([tabs, content_area], expand=True)

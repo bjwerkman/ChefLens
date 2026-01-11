@@ -12,12 +12,26 @@ class RecipeService:
         self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
     async def get_recipes(self, user_id: UUID) -> list[Recipe]:
+        print(f"DEBUG BACKEND: Fetching recipes for user_id={user_id}")
+        
+        # DEBUG: Try to fetch ALL recipes first to see if we have access/data
+        try:
+            all_response = self.supabase.table("recipes").select("*").execute()
+            print(f"DEBUG BACKEND: Total recipes in DB (visible to client): {len(all_response.data)}")
+            if len(all_response.data) > 0:
+                print(f"DEBUG BACKEND: Sample User ID from DB: {all_response.data[0].get('user_id')}")
+        except Exception as e:
+            print(f"DEBUG BACKEND: Failed to fetch all recipes: {e}")
+
+        # Original Query
         response = self.supabase.table("recipes").select("*").eq("user_id", str(user_id)).execute()
         recipes = []
         for item in response.data:
             # parsed_data is stored as jsonb, need to convert to Pydantic
             item['parsed_data'] = RecipeData(**item['parsed_data'])
             recipes.append(Recipe(**item))
+        
+        print(f"DEBUG BACKEND: Found {len(recipes)} recipes for this user.")
         return recipes
 
     async def get_recipe(self, recipe_id: UUID, user_id: UUID) -> Recipe | None:

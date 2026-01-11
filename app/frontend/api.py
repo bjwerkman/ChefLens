@@ -9,6 +9,8 @@ class ApiClient:
         self.user_id: Optional[str] = None # Store user_id after login
 
     async def login(self, email: str, password: str) -> tuple[bool, str]:
+        # Login is special, we want to handle the 401/400 explicitly here but let 500s bubble if we want
+        # For consistency with existing view logic (success, msg), we keep the try/except but improve it.
         try:
             payload = LoginRequest(email=email, password=password).model_dump()
             response = await self.client.post("/auth/cookidoo", json=payload)
@@ -17,85 +19,56 @@ class ApiClient:
                 self.user_id = data.get("user_id")
                 return True, "Success"
             
-            # Try to get error detail
-            try:
-                error_detail = response.json().get("detail", "Unknown error")
-            except:
-                error_detail = response.text
+            error_detail = response.json().get("detail", response.text)
             return False, error_detail
             
         except Exception as e:
-            print(f"Login error: {e}")
+            # Login view expects a tuple
             return False, str(e)
 
     async def get_recipes(self) -> list[Dict[str, Any]]:
         if not self.user_id:
             return []
-        try:
-            response = await self.client.get("/recipes/", params={"user_id": self.user_id})
-            if response.status_code == 200:
-                return response.json()
-            return []
-        except Exception as e:
-            print(f"Get Recipes error: {e}")
-            return []
+        # Let exceptions bubble up to the View so we can show "Connection Error"
+        response = await self.client.get("/recipes/", params={"user_id": self.user_id})
+        response.raise_for_status()
+        return response.json()
 
-    async def parse_recipe(self, text: str = "", url: str = "") -> Dict[str, Any] | None:
-        try:
-            payload = ParseRequest(text=text, url=url).model_dump()
-            response = await self.client.post("/recipes/parse", json=payload)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except Exception as e:
-            print(f"Parse error: {e}")
-            return None
+    async def parse_recipe(self, text: str = "", url: str = "") -> Dict[str, Any]:
+        payload = ParseRequest(text=text, url=url).model_dump()
+        response = await self.client.post("/recipes/parse", json=payload)
+        response.raise_for_status()
+        return response.json()
 
-    async def create_recipe(self, recipe_data: Dict[str, Any]) -> Dict[str, Any] | None:
+    async def create_recipe(self, recipe_data: Dict[str, Any]) -> Dict[str, Any]:
         if not self.user_id:
-            return None
-        try:
-            # The backend router expects: create_recipe(recipe_data: RecipeData, user_id: UUID, ...)
-            # BUT typical REST API bodies don't mix Query and Body well for simple Pydantic unless specified.
-            # My router implementation:
-            # @router.post("/", response_model=Recipe)
-            # async def create_recipe(recipe_data: RecipeData, user_id: UUID, ...)
-            # FastAPI typically expects `user_id` as query param if not in body Pydantic.
-            
-            response = await self.client.post(
-                "/recipes/", 
-                json=recipe_data, 
-                params={"user_id": self.user_id}
-            )
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except Exception as e:
-            print(f"Create Recipe error: {e}")
-            return None
+            raise Exception("User not authenticated")
+        
+        response = await self.client.post(
+            "/recipes/", 
+            json=recipe_data, 
+            params={"user_id": self.user_id}
+        )
+        response.raise_for_status()
+        return response.json()
 
-    async def convert_recipe(self, recipe_id: str) -> Dict[str, Any] | None:
+    async def convert_recipe(self, recipe_id: str) -> Dict[str, Any]:
         if not self.user_id:
-            return None
-        try:
-            response = await self.client.post(
-                f"/recipes/{recipe_id}/convert",
-                params={"user_id": self.user_id}
-            )
-            if response.status_code == 200:
-                return response.json()
-            else:
-                 print(f"Convert Failed: {response.status_code} - {response.text}")
-            return None
-        except Exception as e:
-            print(f"Convert Recipe error: {e}")
-            return None
+             raise Exception("User not authenticated")
+
+        response = await self.client.post(
+            f"/recipes/{recipe_id}/convert",
+            params={"user_id": self.user_id}
+        )
+        response.raise_for_status()
+        return response.json()
 
     async def upload_recipe(self, recipe_id: str, target_recipe_id: str) -> tuple[bool, str]:
         if not self.user_id:
             return False, "Not logged in"
+        
+        # Upload view expects tuple, but we can still improve the internal logic
         try:
-            # Note: UploadRequest in models uses UUID but api passes str. Pydantic handles conversion.
             payload = {
                 "recipe_id": recipe_id,
                 "user_id": self.user_id,
@@ -104,19 +77,9 @@ class ApiClient:
             
             response = await self.client.post("/recipes/upload", json=payload)
             if response.status_code == 200:
-                data = response.json()
-                # Backend returns {"status": "success", "cookidoo_id": ...} or error detail
                 return True, "Success"
-            else:
-                try:
-                    detail = response.json().get("detail", response.text)
-                except:
-                    detail = response.text
-                print(f"Upload Failed: {response.status_code} - {detail}")
-                return False, f"Error {response.status_code}: {detail}"
-        except Exception as e:
-            print(f"Upload Exception: {e}")
-            return False, str(e)
             
-    async def close(self):
-        await self.client.aclose()
+            detail = response.json().get("detail", response.text)
+            return False, f"Error {response.status_code}: {detail}"
+        except Exception as e:
+            return False, str(e)
