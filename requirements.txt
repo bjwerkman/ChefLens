@@ -1,7 +1,6 @@
 fastapi
 uvicorn
-flet
-flet-web
+
 pydantic
 pydantic-settings
 supabase

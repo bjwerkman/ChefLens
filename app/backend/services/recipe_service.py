@@ -77,3 +77,8 @@ class RecipeService:
                 item['thermomix_data'] = RecipeData(**item['thermomix_data'])
             return Recipe(**item)
         raise ValueError("Failed to update recipe with thermomix data")
+
+    async def delete_recipe(self, recipe_id: UUID, user_id: UUID) -> bool:
+        response = self.supabase.table("recipes").delete().eq("id", str(recipe_id)).eq("user_id", str(user_id)).execute()
+        # Supabase returns the deleted row in data. If len > 0, it was deleted.
+        return len(response.data) > 0

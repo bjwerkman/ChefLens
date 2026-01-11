@@ -24,20 +24,27 @@ async def parse_recipe(
     request: ParseRequest,
     ai_service: AiService = Depends(get_ai_service)
 ):
-    if request.text:
-        return await ai_service.parse_recipe(request.text)
-    
-    if request.url:
-        try:
+    try:
+        if request.text:
+            return await ai_service.parse_recipe(request.text)
+        
+        if request.url:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(request.url, follow_redirects=True, timeout=10.0)
-                resp.raise_for_status()
-                content = resp.text
-                return await ai_service.parse_recipe(content)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
-            
-    raise HTTPException(status_code=400, detail="No text or URL provided")
+                try:
+                    resp = await client.get(request.url, follow_redirects=True, timeout=10.0)
+                    resp.raise_for_status()
+                    content = resp.text
+                    return await ai_service.parse_recipe(content)
+                except httpx.HTTPError as e:
+                     raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+                
+        raise HTTPException(status_code=400, detail="No text or URL provided")
+        
+    except ValueError as ve:
+         # Capture AI parsing errors specifically
+         raise HTTPException(status_code=422, detail=str(ve))
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
 
 @router.get("/", response_model=list[Recipe])
 async def get_recipes(
@@ -56,6 +63,17 @@ async def get_recipe(
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe
+
+@router.delete("/{recipe_id}")
+async def delete_recipe(
+    recipe_id: UUID,
+    user_id: UUID,
+    service: RecipeService = Depends(get_recipe_service)
+):
+    success = await service.delete_recipe(recipe_id, user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Recipe not found or could not be deleted")
+    return {"message": "Recipe deleted successfully"}
 
 @router.post("/", response_model=Recipe)
 async def create_recipe(

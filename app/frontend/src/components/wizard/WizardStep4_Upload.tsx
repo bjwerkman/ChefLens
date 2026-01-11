@@ -7,6 +7,7 @@ import { Check, CloudUpload, Loader2, RotateCcw } from 'lucide-react';
 export function WizardStep4_Upload() {
     const { recipeId, reset } = useWizardStore();
     const { user } = useAuth();
+    const [targetId, setTargetId] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -17,9 +18,18 @@ export function WizardStep4_Upload() {
         setLoading(true);
         setError(null);
         try {
+            // Basic ID extraction if full URL is pasted
+            let cleanId = targetId.trim();
+            if (cleanId.includes('cookidoo') && cleanId.includes('/')) {
+                const parts = cleanId.split('/');
+                const last = parts[parts.length - 1];
+                cleanId = last.split('?')[0]; // Remove query params
+            }
+
             await api.post('/recipes/upload', {
                 recipe_id: recipeId,
-                user_id: user.id
+                user_id: user.id,
+                target_recipe_id: cleanId || null
             });
             setSuccess(true);
         } catch (err: any) {
@@ -63,10 +73,22 @@ export function WizardStep4_Upload() {
                 </div>
                 <div>
                     <h3 className="text-lg font-semibold text-gray-900">Ready to Upload</h3>
-                    <p className="text-gray-600 max-w-md mt-2">
+                    <p className="text-gray-600 max-w-md mt-2 mx-auto">
                         This will create a new recipe or update an existing one on your Cookidoo account.
                     </p>
                 </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Target Recipe ID (Optional)</label>
+                <input
+                    type="text"
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    placeholder="Enter Cookidoo ID or URL to overwrite..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave blank to create a brand new recipe.</p>
             </div>
 
             {error && (
@@ -75,7 +97,7 @@ export function WizardStep4_Upload() {
                 </div>
             )}
 
-            <div className="flex justify-center pt-8">
+            <div className="flex justify-center pt-4">
                 <button
                     onClick={handleUpload}
                     disabled={loading}

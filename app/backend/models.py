@@ -52,4 +52,4 @@ class ParseRequest(BaseModel):
 class UploadRequest(BaseModel):
     recipe_id: UUID
     user_id: UUID
-    target_recipe_id: str
+    target_recipe_id: Optional[str] = None
