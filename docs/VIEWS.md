@@ -1,105 +1,83 @@
 # ChefLens View Specifications
 
-> This document details the User Interface (UI) Views of ChefLens, built using **Flet** (Python-based Flutter framework).
+> This document details the User Interface (UI) Views of ChefLens, built using **React** (Vite + TypeScript + Tailwind CSS).
 
 ---
 
-## 1. Login View (`app/frontend/views/login.py`)
+## 1. Login View (`App.tsx`)
 
 ### Purpose
-The entry point of the application. Handles authentication via Supabase and provides immediate feedback on login status.
+The entry point of the application. Handles authentication via Supabase and provides immediate feedback on login status. If the user is unauthenticated, the `App` component renders this view.
 
 ### Structure & Layout
-*   **Container:** Centered content with a gradient background (Blue/Purple theme).
-*   **Form Card:** A distinct "Card" or "Container" with a white/surface background, rounded corners (`border_radius=10`), and shadow to elevate it from the background.
+*   **Container:** Centered layout (`flex items-center justify-center`) with a light gray background (`bg-gray-100`).
+*   **Form Card:** A white card (`bg-white`) with shadow (`shadow-xl`) and rounded corners (`rounded-xl`).
 
 ### Components
 1.  **Header:**
-    *   `ft.Icon(name="lock_outline", size=50)`: Visual cue for security.
-    *   `ft.Text("ChefLens Login", size=30, weight="bold")`: App branding.
+    *   **Text:** `h1` "ChefLens" with `text-3xl font-bold text-gray-800`.
+    *   **Subtext:** "Please login to continue" in `text-gray-500`.
 2.  **Input Fields:**
-    *   `email_field`: `ft.TextField` with placeholder "Email".
-    *   `password_field`: `ft.TextField` with `password=True` to obscure text.
+    *   Currently implemented as browser-native `prompt()` for rapid prototyping (Login/Password).
+    *   *Upcoming:* Standard React `input` fields for email/password.
 3.  **Actions:**
-    *   `login_button`: `ft.ElevatedButton` labeled "Sign In". Triggers the async `login_click` event.
+    *   **Sign In Button:** Indigo-styled button (`bg-indigo-600 hover:bg-indigo-700`) triggering `supabase.auth.signInWithPassword`.
 4.  **Feedback:**
-    *   `error_text`: `ft.Text` positioned below the button, usually Red, hidden by default.
-
-### Behavior
-*   **On Click:**
-    *   Calls `AppState().api.login(email, password)`.
-    *   If Success: Navigates to `/dashboard`.
-    *   If Failure: Updates `error_text` with the specific error message provided by the API (e.g., "Invalid credentials").
+    *   Browser `alert()` on error for immediate feedback.
 
 ---
 
-## 2. Dashboard View (`app/frontend/views/dashboard.py`)
+## 2. Dashboard / Sidebar Layout (`App.tsx`, `WizardLayout.tsx`)
 
 ### Purpose
-The central hub for the user. Displays the library of converted recipes and provides access to the "Add Recipe" workflow.
+The "Shell" of the application once logged in. It provides navigation and context.
 
 ### Structure & Layout
-*   **AppBar:** Standard Flet `ft.AppBar` with title "ChefLens Dashboard".
-*   **Main Content:** A responsive Grid or List of recipe cards.
-*   **Floating Action Button (FAB):** A prominently placed button (`ft.icons.ADD`) to start the Wizard.
+*   **Sidebar:** Fixed width (`w-64`), white background, persistent on the left (`hidden md:flex`).
+*   **Main Content:** Flexible area (`flex-1`) with a light gray background (`bg-gray-50`) showcasing the active Wizard Step.
 
 ### Key Components
-1.  **Recipe List:**
-    *   Dynamically populated from `AppState().api.get_recipes()`.
-    *   **Items:** `ft.ListTile` or Custom Card components.
-    *   **Content:** Title, Description snippet, and optional Image.
-    *   **Interactivity:** Clicking a recipe navigates to a detail view (or edit mode).
-2.  **Add Button:**
-    *   `ft.FloatingActionButton` using `SafeIcon("add")`.
-    *   Action: `page.go("/wizard")`.
-3.  **Refresh Mechanism:**
-    *   Action button in AppBar to re-fetch data from the backend.
-
-### State Management
-*   **`on_mount` / `did_mount`:** Triggers the initial data fetch so the user sees data immediately upon arrival.
+1.  **Sidebar Nav:**
+    *   **Links:** "New Recipe", "My Recipes", "Settings".
+    *   **User Profile:** Bottom section showing the user's email and a "Sign Out" button (`LogOut` icon).
+2.  **Wizard Stepper:**
+    *   Located at the top of the Main Content.
+    *   Visual progress bar connecting 4 steps.
+    *   **Active Step:** Indigo circle (`bg-indigo-600`).
+    *   **Inactive Step:** Gray circle (`border-gray-300`).
 
 ---
 
-## 3. Wizard View (`app/frontend/views/wizard.py`)
+## 3. Wizard Components (`src/components/wizard/*`)
 
 ### Purpose
 The core feature of ChefLens. A sophisticated multi-step workflow to ingest, parse, convert, and upload recipes.
 
-### Structure: The 4-Tab Workflow
-The view is orchestrated by a custom Tab navigation bar (`ft.Row` of buttons) and a dynamic content area (`content_area`).
-
-#### Tab 1: Input (`input_tab`)
+### Step 1: Input (`WizardStep1_Input.tsx`)
 *   **Goal:** Get raw recipe data.
-*   **Components:**
-    *   `ft.TextField` (Multiline): For pasting raw text.
-    *   `ft.TextField` (Single line): For pasting a URL.
-    *   `ft.ElevatedButton("Parse with AI")`: Triggers the Gemini parsing pipeline.
-*   **Logic:** Upon success, stores data in `active_recipe_data` and auto-advances to Tab 2.
+*   **Modes:** Toggle between "Import from URL" (`Link` icon) and "Paste Text" (`Type` icon).
+*   **Action:** "Analyze Recipe" button.
+*   **Logic:** Calls `POST /recipes/parse`. On success, updates Zustand store (`recipeJson`) and moves to Step 2.
 
-#### Tab 2: Review (`review_tab`)
+### Step 2: Review (`WizardStep2_Review.tsx`)
 *   **Goal:** Verify AI parsing accuracy.
 *   **Components:**
-    *   **Toggle Switch:** `ft.Switch("View as JSON")` allows toggling between code view and human-readable view.
-    *   **Human View:** Nicely formatted parsed ingredients and steps.
-    *   **JSON Editor:** Editable text field for power users to fix parsing errors manually.
-    *   `ft.ElevatedButton("Save & Proceed")`: Commits the recipe to Supabase.
+    *   **JSON Editor:** Large text area (`h-96`) displaying the parsed JSON. Allows manual correction of AI errors.
+    *   **Action:** "Confirm & Convert" button moves to Step 3.
 
-#### Tab 3: Thermomix (`thermomix_tab`)
+### Step 3: Thermomix (`WizardStep3_Thermomix.tsx`)
 *   **Goal:** Generate machine-specific instructions.
-*   **Components:**
-    *   `ft.ElevatedButton("Generate Thermomix Instructions")`: Calls `AiService.convert_to_thermomix`.
-    *   **Step List:** Displays steps with color-coded "Badges" for Time (Blue), Temp (Amber), Speed (Green), and Mode (Purple).
-    *   **Validation:** Ensures every step has valid machine settings before upload.
+*   **Logic:**
+    *   **Auto-Trigger:** On mount, checks if data exists; if not, calls `POST /recipes/{id}/convert`.
+    *   **Feedback:** Shows `Loader2` spinner during conversion.
+    *   **Display:** Read-only JSON view of the converted Thermomix structure.
+    *   **Action:** "Proceed to Upload" moves to Step 4.
 
-#### Tab 4: Upload (`upload_tab`)
+### Step 4: Upload (`WizardStep4_Upload.tsx`)
 *   **Goal:** Sync with Cookidoo.
-*   **Components:**
-    *   **Input:** `ft.TextField` for "Target Recipe ID".
-        *   *Smart Logic:* Left empty = "Create New". Filled = "Overwrite".
-        *   *Helper:* Accepts full URL or bare ID.
-    *   **Action:** `ft.ElevatedButton("Upload to Cookidoo")`.
-    *   **Feedback:** `ft.ProgressRing` and detailed status text (Red/Green).
+*   **Logic:**
+    *   **Action:** "Upload to Cookidoo" button triggering `POST /recipes/upload`.
+    *   **Success State:** Displays a large Green Checkmark and a "Start New Recipe" button to reset the wizard using `store.reset()`.
 
-### Implementation Details
-*   **State Persistence:** Variables like `active_recipe_data`, `active_thermomix_data`, and `current_recipe_id` persist in the closure of the `WizardView` function while the user navigates tabs.
-*   **Async Operations:** All AI and API calls are awaited with visual indicators (`ProgressRing`) to prevent UI freezing.
+### State Management
+*   **Zustand Store (`useWizardStore`):** Persists `url`, `rawText`, `recipeJson`, `recipeId`, and `thermomixData` across steps so data isn't lost if the user navigates back and forth.

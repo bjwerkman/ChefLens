@@ -10,7 +10,7 @@
 
 ### Core Technology Stack
 *   **Language:** Python 3.12+
-*   **Frontend:** [Flet](https://flet.dev/) (Flutter for Python)
+*   **Frontend:** [React](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS](https://tailwindcss.com/)
 *   **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (Async Web Framework)
 *   **Database & Auth:** [Supabase](https://supabase.com/) (PostgreSQL + GoTrue)
 *   **AI Engine:** Google Gemini Pro (`gemini-1.5-flash`)
@@ -21,15 +21,14 @@
 ## 2. Architectural Patterns
 
 ### Strict Frontend/Backend Separation
-Even though both run in the same Python process tree (via `uvicorn` mounting Flet), we maintain a strict logical separation:
-1.  **Frontend (`app/frontend`)**: Responsible ONLY for UI, State Management, and API calls. It **NEVER** accesses the database or AI services directly.
+1.  **Frontend (`app/frontend`)**: A React Single Page Application (SPA). It communicates with the backend via REST API and handles all UI logic, State Management (Zustand), and Authentication (Supabase Client).
 2.  **Backend (`app/backend`)**: Responsible for Business Logic, Database interactions, AI processing, and External Integrations (Cookidoo).
 3.  **Core (`app/core`)**: Shared configuration (`config.py`) and secrets management.
 
 ### Data Flow
-1.  **User Action**: User clicks a button in a Flet View (e.g., `WizardView`).
-2.  **API Client**: The View calls `AppState().api.<method>`.
-3.  **HTTP Request**: `ApiClient` sends an async HTTP request (`httpx`) to `http://localhost:8082`.
+1.  **User Action**: User interacts with a React Component (e.g., `WizardStep1_Input`).
+2.  **API Client**: The component calls `axios` utility.
+3.  **HTTP Request**: Request sent to `http://localhost:8082`.
 4.  **Router**: FastAPI Router (`routers/recipes.py`) receives the request.
 5.  **Service Layer**: Router calls a Service (`RecipeService`, `AiService`, `CookidooService`).
 6.  **External/DB**: Service interacts with Supabase, Gemini, or Cookidoo.
@@ -45,14 +44,16 @@ Even though both run in the same Python process tree (via `uvicorn` mounting Fle
     /routers        # FastAPI Routes (endpoints)
     /services       # Business Logic (AI, DB, Cookidoo)
     models.py       # Pydantic Models (Shared Data Structures)
-  /frontend
-    /views          # Flet UI Screens (Dashboard, Wizard, Login)
-    api.py          # HTTP Client for Backend
-    state.py        # Singleton AppState
-    main.py         # Flet Entry Point
+  /frontend         # React Application
+    /src
+      /components   # React Components (Wizard, Layout)
+      /hooks        # Custom Hooks (useAuth)
+      /store        # Zustand Stores
+      /utils        # Helper Utilities (axios, supabase)
+      App.tsx       # Main Entry Point
   /core
     config.py       # Environment Variables & Settings
-  main.py           # Application Entry Point (FastAPI + Flet Mount)
+  main.py           # Application Entry Point (FastAPI + Static Files)
 ```
 
 ---
@@ -60,10 +61,11 @@ Even though both run in the same Python process tree (via `uvicorn` mounting Fle
 ## 4. Key Components
 
 ### Frontend Components
-*   **`AppState` (Singleton):** Holds global state like `user_id`, `api_client`, and `page_ref`.
-*   **`WizardView`:** The core workflow engine. Implements a 4-tab process:
+*   **`useAuth` (Hook):** Manages user authentication state via Supabase.
+*   **`useWizardStore` (Store):** Zustand store responding for holding wizard state (url, text, recipe data).
+*   **`Wizard components`:**
     1.  **Input:** Text or URL ingestion.
-    2.  **Review:** JSON/Text toggle for validating AI parsing.
+    2.  **Review:** JSON editor for validating AI parsing.
     3.  **Thermomix:** AI conversion to structure machine steps.
     4.  **Upload:** One-click sync to Cookidoo.
 
@@ -84,9 +86,14 @@ Even though both run in the same Python process tree (via `uvicorn` mounting Fle
 *   **Sync Bridge:** When using synchronous libraries (like `requests` for Cookidoo), MUST wrap in `asyncio.to_thread` to prevent blocking the event loop.
 
 ### Error Handling
-*   **Frontend:** Display user-friendly `SnackBar` messages. Do not crash the UI.
+*   **Frontend:** Display user-friendly error messages (e.g., in `WizardStep4_Upload`). Do not crash the UI.
 *   **Backend:** Raise `HTTPException` with clear status codes (400, 401, 404, 500) and details.
 *   **Logging:** Use standard `logging` or `print` (during debug) to trace complex flows like Authentication.
+
+### React Guidelines
+*   **Hooks:** Use custom hooks for shared logic (e.g., `useAuth`).
+*   **State:** Use Zustand for complex/global state, `useState` for local component state.
+*   **Types:** Always define interfaces for props and API responses.
 
 ---
 
