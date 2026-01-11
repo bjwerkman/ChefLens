@@ -13,6 +13,9 @@ def get_ai_service():
     return AiService()
 
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ... existing imports ...
 
@@ -108,7 +111,7 @@ async def upload_to_cookidoo(
     
     if not target_id:
         # Create new recipe first
-        print(f"Creating new recipe '{recipe.parsed_data.title}' on Cookidoo...")
+        logger.info(f"Creating new recipe '{recipe.parsed_data.title}' on Cookidoo...")
         target_id = await cookidoo_service.create_recipe(cookies, recipe.parsed_data.title)
         
         if not target_id:
@@ -116,7 +119,7 @@ async def upload_to_cookidoo(
     else:
         pass # Target ID provided, skip create
             
-    print(f"Updating recipe {target_id} on Cookidoo...")
+    logger.info(f"Updating recipe {target_id} on Cookidoo...")
     success = await cookidoo_service.update_recipe_details(
         target_id, 
         cookies, 

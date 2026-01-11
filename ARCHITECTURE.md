@@ -1,181 +1,95 @@
-# ChefLens Architecture & Agent Guidelines
+# ChefLens Architecture & Guidelines
 
 > [!IMPORTANT]
-> This document serves as the **SINGLE SOURCE OF TRUTH** for architectural rules.
+> This document serves as the **SINGLE SOURCE OF TRUTH** for the ChefLens system architecture.
 > Any agent working on this project MUST read and verify their work against these rules.
 
-## Core Principles
+## 1. System Overview
 
-1.  **Strict Frontend/Backend Separation**
-    *   **Rule:** The Frontend (React) must NEVER access the database directly.
-    *   **Rule:** All data operations must go through the Backend API (Express.js).
-    *   **Rule:** `supabase-js` client usage in the Frontend is RESTRICTED to Authentication only. All other usages are deprecated and forbidden in new code.
+**ChefLens** is a local Python application that digitizes, converts, and uploads cooking recipes to the Thermomix Cookidoo platform.
 
-## Design Principles & UI Standards
-
-### 1. Visual Language (Gemini-Inspired)
-*   **Theme:** "Rich Aesthetics" with Premium feel.
-*   **Modes:** Support both Light and Dark modes (System preference by default).
-*   **Animations:** Use subtle micro-animations (framer-motion) for interactions.
-
-### 2. Color System
-*   **Primary Brand:
-*   **Dark Mode Backgrounds:**
-    *   `bg-background`:  (NOT pure black)
-    *   `bg-surface`:  (Sidebar / Cards)
-    *   `bg-surface-elevated`:  (Hover states / Modals)
-*   **Light Mode Backgrounds:**
-    *   `bg-background`: 
-    *   `bg-surface`:  (Sidebar / Chat bubbles)
-*   **Text:**
-    *   Primary:  (Dark) /  (Light)
-    *   Secondary: (Accents) or  (Muted)
-
-### 3. Typography
-*   **Font Family:** `Inter`, `Roboto`, or `Google Sans` (if available).
-    *   [Google Fonts: Inter](https://fonts.google.com/specimen/Inter)
-    *   [Google Fonts: Roboto](https://fonts.google.com/specimen/Roboto)
-*   **Scale:**
-    *   **H1 (Greeting):** `text-5xl` or `text-6xl`, `font-medium`, `tracking-tight`.
-    *   **Headings:** `font-medium`, `tracking-tight`.
-    *   **Body:** `text-base` (16px) or `text-[15px]`, `leading-relaxed` (1.6).
-    *   **Labels:** `text-sm`, `font-medium`.
-
-### 4. User Interaction & Feedback Rules
-*   **NO System Alerts:** `window.alert()` and `window.confirm()` are **STRICTLY FORBIDDEN**.
-*   **Toast Notifications:** Use non-intrusive Toasts (bottom-right) for success/info messages.
-*   **Custom Modals:** Use custom-designed Modals (Radix/Shadcn) for confirmations and forms.
-*   **Empty States:** Never leave a screen blank. Use illustrations or helpful text for empty states.
-*   **Loading States:** Do NOT just show a spinner. Use a "shimmer" effect on text lines (Tailwind `animate-pulse` on gray blocks).
-*   **Streaming Text:** For AI answers, text should appear character-by-character or word-by-word (e.g., using `framer-motion`).
-*   **Active States:** Buttons must have a subtle scale effect or "ripple" (Material Design standard).
-*   **Save Button Logic:**
-    *   **Disabled by Default:** Save buttons must remain disabled until the user modifies at least one field (dirty state).
-    *   **Implementation:** Use the `useFormDirty` hook to track changes.
-    *   **Visual Feedback:** Clearly distinguish between disabled/enabled states.
-*   **Modal Interactions:**
-    *   **Save Action:** On success, trigger a specific sequence:
-        1.  Show **Toast** (Success).
-        2.  Wait **1 Second**.
-        3.  **Close** Modal automatically.
-
-### 5. Buttons & Component Specifications
-*   **Primary Buttons:**
-    *   **Color:** 
-    *   **Text:** 
-*   **Modal Actions (Standardized):**
-    *   **Cancel:** 
-    *   **Save/OK:** 
-    *   **Delete:** 
-    *   **Shape:** `rounded-full`.
-    *   **Effects:** Shadow effects and hover transitions enabled.
-*   **Cards:** Modern unified design system with `rounded-3xl` (24px) corners.
-*   **Chat Input:** `rounded-full` (Pill shape).
-*   **Icons:** Use [Material Symbols (Rounded weight)](https://fonts.google.com/icons) or `lucide-react`.
-
-### 6. Tailwind Configuration (Standard)
-Add the javascript for this configuration
-Copy this into `tailwind.config.js` to strictly enforce the Gemini "Look & Feel".
-
-
-### 7. Layout Reference: 
-Describe the layout
+### Core Technology Stack
+*   **Language:** Python 3.12+
+*   **Frontend:** [Flet](https://flet.dev/) (Flutter for Python)
+*   **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (Async Web Framework)
+*   **Database & Auth:** [Supabase](https://supabase.com/) (PostgreSQL + GoTrue)
+*   **AI Engine:** Google Gemini Pro (`gemini-1.5-flash`)
+*   **Integration:** Custom Cookidoo Scraper/API Wrapper
 
 ---
 
-## Technical Standards
+## 2. Architectural Patterns
 
-### 1. API Design Guidelines
-*   **REST Conventions:** Use plural nouns (e.g., `/api/companies`, not `/api/company`).
-*   **Versioning:** Prefix all API routes with `/api`. Consider `/api/v1/` for breaking changes.
-*   **Response Format:**
-    *   Single Entity: `{ ...entity_fields }`
-    *   List: `[ { ... }, { ... } ]` OR `{ data: [...], meta: { pagination: ... } }`
-    *   Error: `{ error: "User friendly message", code: "ERROR_CODE" }`
+### Strict Frontend/Backend Separation
+Even though both run in the same Python process tree (via `uvicorn` mounting Flet), we maintain a strict logical separation:
+1.  **Frontend (`app/frontend`)**: Responsible ONLY for UI, State Management, and API calls. It **NEVER** accesses the database or AI services directly.
+2.  **Backend (`app/backend`)**: Responsible for Business Logic, Database interactions, AI processing, and External Integrations (Cookidoo).
+3.  **Core (`app/core`)**: Shared configuration (`config.py`) and secrets management.
 
-### 2. Testing Strategy
-*   **Frontend:**
-    *   Use **Jest** + **React Testing Library**.
-    *   Write **Unit Tests** for shared components/hooks.
-    *   Write **Integration Tests** for critical user flows (e.g., login, form submission).
-*   **Backend:**
-    *   Use **Supertest** or **Vitest** for API endpoints.
-    *   Mandatory: Unit/Integration tests for all new routes.
-
-### 3. Error Handling & Logging
-*   **Global Handler:** Ensure `errorHandler` middleware catches all sync/async errors.
-*   **Logging:** Use structured logging (e.g., `console.error` with JSON objects or `pino`) for better observability.
-*   **Client-Side:** APIs should return generic error messages to the client (to hide internals) while logging full stack traces on the server.
-
-### 4. State Management
-*   **Server State:** Prefer **React Query** (TanStack Query) for all API data.
-*   **Client State:** Use **Local State** (`useState`, `useReducer`) where possible. Use **Zustand** only for complex global client state.
-
-### 5. Deployment & Infrastructure
-*   **Dev/Prod Separation:** Use separate Supabase projects for Development and Production.
-*   **Environment Variables:**
-    *   `VITE_API_URL`: Base URL for the backend.
-    *   `DATABASE_URL`: Connection string.
-    *   Config validation: Fail fast (at startup) if required vars are missing.
-
-### 6. Performance & Data Loading
-*   **Lazy Loading:** Only load related data for the selected row or item.
-*   **No Eager Loading for Lists:** Do NOT fetch heavy related data (e.g., historical logs, full relational trees) when querying lists of items. Fetch it on demand when the user selects a specific item.
-
-### 7. Localization Standards
-*   **Standard Locale:** All number and date formatting MUST use **`nl-NL`** (Netherlands) locale.
-*   **Currency Format:**
-    *   Use `Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })`
-    *   Display: **€ 1.234,56** (period as thousand separator, comma as decimal)
-    *   Example: `€ 50.000` for fifty thousand euros
-*   **Number Format:**
-    *   Use `Intl.NumberFormat('nl-NL')`
-    *   Display: **1.234,56** (period as thousand separator, comma as decimal)
-*   **Date Format:**
-    *   Prefer `toLocaleDateString('nl-NL')` for Netherlands format (d-m-yyyy)
-    *   For specific formats, use `Intl.DateTimeFormat('nl-NL', { ... })`
-    *   Display: **4-1-2026** (day-month-year)
-*   **IMPORTANT:** `'en-NL'` is NOT a valid locale code. Always use `'nl-NL'` for Netherlands/EU formatting.
+### Data Flow
+1.  **User Action**: User clicks a button in a Flet View (e.g., `WizardView`).
+2.  **API Client**: The View calls `AppState().api.<method>`.
+3.  **HTTP Request**: `ApiClient` sends an async HTTP request (`httpx`) to `http://localhost:8082`.
+4.  **Router**: FastAPI Router (`routers/recipes.py`) receives the request.
+5.  **Service Layer**: Router calls a Service (`RecipeService`, `AiService`, `CookidooService`).
+6.  **External/DB**: Service interacts with Supabase, Gemini, or Cookidoo.
+7.  **Response**: Data flows back up the chain to the UI.
 
 ---
 
-## Technical Debt & Stack Guidelines
+## 3. Directory Structure
 
-### Frontend (`/`)
-*   **Tech:
-*   **State:
-*   **Data Layer:
-*   **Auth:** 
-
-### Backend (`/backend`)
-*   **Tech:** 
-*   **Database:** 
-*   **ORM:** 
-*   **Entry Point:** 
-
-### Detailed Rules for Agents
-
-#### 1. Frontend Development via Agent
-*   **DO NOT** import `supabase` from `supabaseClient` to query tables directly.
-*   **DO** use `services/apiClient.ts` methods.
-*   **IF** an endpoint is missing, create it in the backend first.
-
-#### 2. Backend Development via Agent
-*   **DO** use **Drizzle ORM** for all database interactions.
-*   **DO** use the `authenticate` middleware for all protected routes.
-*   **Backend Code Standards:**
-    *   **Rule:** Use explicit file extensions for ALL local imports (e.g., `import ... from './module.js'`).
-    *   **Rule:** Do NOT use directory imports (e.g., `import ... from '../db'`). Must explicitly import index (e.g., `import ... from '../db/index.js'`).
-
-#### 3. Migration Checklist (storageService)
-*   [ ] Audit `services/storageService.ts`.
-*   [ ] Refactor `supabase.from` calls to API calls.
-*   [ ] Deprecate direct Supabase access methods.
-
----
-
-## Directory Structure Enforcement
-
+```text
+/app
+  /backend
+    /routers        # FastAPI Routes (endpoints)
+    /services       # Business Logic (AI, DB, Cookidoo)
+    models.py       # Pydantic Models (Shared Data Structures)
+  /frontend
+    /views          # Flet UI Screens (Dashboard, Wizard, Login)
+    api.py          # HTTP Client for Backend
+    state.py        # Singleton AppState
+    main.py         # Flet Entry Point
+  /core
+    config.py       # Environment Variables & Settings
+  main.py           # Application Entry Point (FastAPI + Flet Mount)
 ```
-Dscribe directory structure
-```
+
+---
+
+## 4. Key Components
+
+### Frontend Components
+*   **`AppState` (Singleton):** Holds global state like `user_id`, `api_client`, and `page_ref`.
+*   **`WizardView`:** The core workflow engine. Implements a 4-tab process:
+    1.  **Input:** Text or URL ingestion.
+    2.  **Review:** JSON/Text toggle for validating AI parsing.
+    3.  **Thermomix:** AI conversion to structure machine steps.
+    4.  **Upload:** One-click sync to Cookidoo.
+
+### Backend Services
+*   **`AiService`:** Wraps Google GenAI. Handles Prompt Engineering for parsing and conversion.
+*   **`RecipeService`:** Manages CRUD operations with Supabase.
+*   **`CookidooService`:** The complex integration layer.
+    *   **Login:** Simulates a browser login flow (Requests + BeautifulSoup) to handle efficient SSO redirects.
+    *   **Create/Update:** Uses a "Create-then-Update" strategy to ensure atomic syncing with Cookidoo.
+
+---
+
+## 5. Coding Standards
+
+### Python Verification
+*   **Type Hinting:** Required for all function signatures (e.g., `def foo(id: str) -> bool:`).
+*   **Async/Await:** Critical. The Backend is Async (FastAPI). The Frontend is Async (Flet). Verify `await` usage on all I/O bound calls.
+*   **Sync Bridge:** When using synchronous libraries (like `requests` for Cookidoo), MUST wrap in `asyncio.to_thread` to prevent blocking the event loop.
+
+### Error Handling
+*   **Frontend:** Display user-friendly `SnackBar` messages. Do not crash the UI.
+*   **Backend:** Raise `HTTPException` with clear status codes (400, 401, 404, 500) and details.
+*   **Logging:** Use standard `logging` or `print` (during debug) to trace complex flows like Authentication.
+
+---
+
+## 6. Migration & Updates
+*   **Database:** Supabase schema is currently managed manually. Future: implementations should use migration scripts.
+*   **Dependencies:** Managed via `requirements.txt` (or user's `venv`). Always check for `google-generativeai` vs `google-genai` deprecations.
