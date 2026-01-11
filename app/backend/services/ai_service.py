@@ -67,3 +67,41 @@ class AiService:
             # Fallback or error handling
             print(f"AI Parsing failed: {e}")
             raise ValueError(f"Failed to parse recipe: {e}")
+
+    async def convert_to_thermomix(self, recipe_data: RecipeData) -> RecipeData:
+        # Create a specialized prompt for conversion
+        conversion_prompt = """
+        You are an expert Thermomix Recipe Developer.
+        Your task is to take a generic recipe and rewrite the steps to be fully compatible with the Thermomix TM6.
+        
+        INPUT: Generic Recipe JSON
+        OUTPUT: Enhanced Recipe JSON with specific Thermomix settings.
+        
+        INSTRUCTIONS:
+        1. Keep the 'ingredients' list mostly the same, but you may regroup them if the steps require it (e.g. "mill sugar 10 sec / speed 10" might move sugar to step 1).
+        2. Rewrite each 'step' description to use Thermomix terminology (e.g. "Add onion...", "Chop 5 sec/speed 5").
+        3. For each step, explicitly assign:
+           - time: e.g. "5 sec", "10 min"
+           - temperature: e.g. "100°C", "120°C", "Varoma"
+           - speed: e.g. "Speed 1", "Speed 5", "Speed Spoon" (use reverse implied by context if needed, but JSON only has speed field).
+           - mode: e.g. "Dough", "Turbo", "Sauté" (only if applicable).
+        
+        Output must be valid JSON matching the RecipeData schema.
+        """
+        
+        content = json.dumps(recipe_data.model_dump(mode='json'), indent=2)
+        prompt = f"{conversion_prompt}\n\nINPUT RECIPE:\n{content}\n\nRETURN JSON ONLY."
+
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            
+            data = json.loads(text)
+            return RecipeData(**data)
+        except Exception as e:
+            print(f"AI Conversion failed: {e}")
+            raise ValueError(f"Failed to convert recipe: {e}")

@@ -38,6 +38,7 @@ class Recipe(BaseModel):
     image_url: Optional[str] = None
     raw_content: Optional[str] = None
     parsed_data: RecipeData
+    thermomix_data: Optional[RecipeData] = None
     cookidoo_id: Optional[str] = None
 
 class LoginRequest(BaseModel):
@@ -50,3 +51,5 @@ class ParseRequest(BaseModel):
 
 class UploadRequest(BaseModel):
     recipe_id: UUID
+    user_id: UUID
+    target_recipe_id: str

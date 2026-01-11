@@ -49,3 +49,17 @@ class RecipeService:
 
     async def update_recipe_cookidoo_id(self, recipe_id: UUID, user_id: UUID, cookidoo_id: str):
          self.supabase.table("recipes").update({"cookidoo_id": cookidoo_id}).eq("id", str(recipe_id)).eq("user_id", str(user_id)).execute()
+
+    async def update_thermomix_data(self, recipe_id: UUID, user_id: UUID, thermomix_data: RecipeData) -> Recipe:
+        data = {
+            "thermomix_data": thermomix_data.model_dump(mode='json')
+        }
+        response = self.supabase.table("recipes").update(data).eq("id", str(recipe_id)).eq("user_id", str(user_id)).execute()
+        
+        if response.data:
+            item = response.data[0]
+            item['parsed_data'] = RecipeData(**item['parsed_data'])
+            if item.get('thermomix_data'):
+                item['thermomix_data'] = RecipeData(**item['thermomix_data'])
+            return Recipe(**item)
+        raise ValueError("Failed to update recipe with thermomix data")

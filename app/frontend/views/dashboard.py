@@ -64,7 +64,7 @@ def DashboardView(page: ft.Page):
     
     layout = ft.Column(
         [
-            ft.ElevatedButton("Refresh Recipes", on_click=lambda _: load_recipes()), 
+            ft.ElevatedButton("Refresh Recipes", on_click=lambda _: page.run_task(load_recipes)), 
             recipes_grid
         ],
         expand=True 

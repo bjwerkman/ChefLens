@@ -74,5 +74,49 @@ class ApiClient:
             print(f"Create Recipe error: {e}")
             return None
 
+    async def convert_recipe(self, recipe_id: str) -> Dict[str, Any] | None:
+        if not self.user_id:
+            return None
+        try:
+            response = await self.client.post(
+                f"/recipes/{recipe_id}/convert",
+                params={"user_id": self.user_id}
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                 print(f"Convert Failed: {response.status_code} - {response.text}")
+            return None
+        except Exception as e:
+            print(f"Convert Recipe error: {e}")
+            return None
+
+    async def upload_recipe(self, recipe_id: str, target_recipe_id: str) -> tuple[bool, str]:
+        if not self.user_id:
+            return False, "Not logged in"
+        try:
+            # Note: UploadRequest in models uses UUID but api passes str. Pydantic handles conversion.
+            payload = {
+                "recipe_id": recipe_id,
+                "user_id": self.user_id,
+                "target_recipe_id": target_recipe_id
+            }
+            
+            response = await self.client.post("/recipes/upload", json=payload)
+            if response.status_code == 200:
+                data = response.json()
+                # Backend returns {"status": "success", "cookidoo_id": ...} or error detail
+                return True, "Success"
+            else:
+                try:
+                    detail = response.json().get("detail", response.text)
+                except:
+                    detail = response.text
+                print(f"Upload Failed: {response.status_code} - {detail}")
+                return False, f"Error {response.status_code}: {detail}"
+        except Exception as e:
+            print(f"Upload Exception: {e}")
+            return False, str(e)
+            
     async def close(self):
         await self.client.aclose()
