@@ -10,6 +10,8 @@ steps:
       - 'VITE_SUPABASE_URL=$_VITE_SUPABASE_URL'
       - '--build-arg'
       - 'VITE_SUPABASE_ANON_KEY=$_VITE_SUPABASE_ANON_KEY'
+      - '--build-arg'
+      - 'VITE_API_URL=$_VITE_API_URL'
       - '.'
 
   # 2. Push the image to Artifact Registry
@@ -52,6 +54,7 @@ substitutions:
     # Default values (empty), expected to be populated by Trigger variables
     _VITE_SUPABASE_URL: ""
     _VITE_SUPABASE_ANON_KEY: ""
+    _VITE_API_URL: ""
     _SUPABASE_SERVICE_ROLE_KEY: ""
     _GOOGLE_API_KEY: ""
     _SUPABASE_PROJECT_ID: ""

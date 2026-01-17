@@ -11,10 +11,12 @@ RUN npm ci
 # Arguments for build time (passed via --build-arg in Cloud Build)
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_API_URL
 
 # Set as env vars for the build
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_API_URL=$VITE_API_URL
 
 # Copy source code
 COPY app/frontend ./
