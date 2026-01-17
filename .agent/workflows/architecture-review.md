@@ -23,7 +23,7 @@ This workflow is **AUTOMATICALLY TRIGGERED** when the user request involves ANY 
 **If the user request conflicts with ARCHITECTURE.md**, you MUST:
 1. **STOP** before implementing
 2. **WARN the user** about the conflict
-3. Follow the [Propose Architecture Update](file://file:///Users/ronaldtermaat/Applications/Eos/Eos/.agent/workflows/propose-architecture-update.md) workflow
+3. Follow the workflow as described in [Propose Architecture Update] [file propose-architecture-update.md] 
 
 ---
 

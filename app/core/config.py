@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str = Field(alias="SUPABASE_SERVICE_ROLE_KEY")
     GEMINI_API_KEY: str = Field(alias="GOOGLE_API_KEY")
     SUPABASE_PROJECT_ID: str = Field(alias="SUPABASE_PROJECT_ID")
+    SUPABASE_JWT_SECRET: str = Field(alias="SUPABASE_JWT_SECRET")
     
     GEMINI_MODEL_NAME: str = "gemini-2.0-flash"
     

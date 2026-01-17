@@ -7,7 +7,7 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe, onDelete }: RecipeCardProps) {
-    const { user } = useAuth();
+    useAuth();
 
     // Formatting helper
     const formatDate = (dateString: string) => {
@@ -44,14 +44,23 @@ export function RecipeCard({ recipe, onDelete }: RecipeCardProps) {
 
     return (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full group relative">
-            {/* Delete Button (Visible on Hover) */}
-            <button
-                onClick={handleDelete}
-                className="absolute top-2 right-2 z-10 p-2 bg-white/90 backdrop-blur rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Delete Recipe"
-            >
-                <Trash2 size={16} />
-            </button>
+            {/* Actions Overlay (Visible on Hover) */}
+            <div className="absolute top-2 right-2 z-10 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                    onClick={handleShare}
+                    className="p-2 bg-white/90 backdrop-blur rounded-full text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 shadow-sm transition-colors"
+                    title="Share Recipe"
+                >
+                    <Share2 size={16} />
+                </button>
+                <button
+                    onClick={handleDelete}
+                    className="p-2 bg-white/90 backdrop-blur rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 shadow-sm transition-colors"
+                    title="Delete Recipe"
+                >
+                    <Trash2 size={16} />
+                </button>
+            </div>
 
             {/* Image Placeholder */}
             <div className="h-48 bg-gray-100 flex items-center justify-center relative">
@@ -86,14 +95,6 @@ export function RecipeCard({ recipe, onDelete }: RecipeCardProps) {
                         <Calendar size={12} className="mr-1" />
                         <span>{formatDate(recipe.created_at)}</span>
                     </div>
-
-                    <button
-                        onClick={handleShare}
-                        className="flex items-center text-indigo-600 hover:text-indigo-800 font-medium transition-colors p-2 -mr-2 rounded-lg hover:bg-indigo-50"
-                    >
-                        <Share2 size={16} className="mr-1" />
-                        Share
-                    </button>
                 </div>
             </div>
         </div>

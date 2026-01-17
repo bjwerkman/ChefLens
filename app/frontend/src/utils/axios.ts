@@ -1,5 +1,17 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8082/api/v1',
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+});
+
+// Add a request interceptor to inject the token
+api.interceptors.request.use(async (config) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    return config;
+}, (error) => {
+    return Promise.reject(error);
 });

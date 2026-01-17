@@ -1,0 +1,62 @@
+steps:
+  # 1. Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/cheflens:$COMMIT_SHA'
+      - '--build-arg'
+      - 'VITE_SUPABASE_URL=$_VITE_SUPABASE_URL'
+      - '--build-arg'
+      - 'VITE_SUPABASE_ANON_KEY=$_VITE_SUPABASE_ANON_KEY'
+      - '.'
+
+  # 2. Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/cheflens:$COMMIT_SHA']
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'cheflens' 
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/cheflens:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'SUPABASE_SERVICE_ROLE_KEY=$_SUPABASE_SERVICE_ROLE_KEY'
+      - '--set-env-vars'
+      - 'GOOGLE_API_KEY=$_GOOGLE_API_KEY'
+      - '--set-env-vars'
+      - 'SUPABASE_PROJECT_ID=$_SUPABASE_PROJECT_ID'
+      - '--set-env-vars'
+      - 'SUPABASE_JWT_SECRET=$_SUPABASE_JWT_SECRET'
+      - '--set-env-vars'
+      - 'COOKIDOO_EMAIL=$_COOKIDOO_EMAIL'
+      - '--set-env-vars'
+      - 'COOKIDOO_PASSWORD=$_COOKIDOO_PASSWORD'
+      - '--set-env-vars'
+      - 'COOKIDOO_REGION=$_COOKIDOO_REGION'
+      - '--set-env-vars'
+      - 'COOKIDOO_DOMAIN=$_COOKIDOO_DOMAIN'
+
+images:
+  - 'gcr.io/$PROJECT_ID/cheflens:$COMMIT_SHA'
+
+substitutions:
+    # Default values (empty), expected to be populated by Trigger variables
+    _VITE_SUPABASE_URL: ""
+    _VITE_SUPABASE_ANON_KEY: ""
+    _SUPABASE_SERVICE_ROLE_KEY: ""
+    _GOOGLE_API_KEY: ""
+    _SUPABASE_PROJECT_ID: ""
+    _SUPABASE_JWT_SECRET: ""
+    _COOKIDOO_EMAIL: ""
+    _COOKIDOO_PASSWORD: ""
+    _COOKIDOO_REGION: ""
+    _COOKIDOO_DOMAIN: ""

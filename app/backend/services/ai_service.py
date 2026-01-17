@@ -54,38 +54,49 @@ class AiService:
         prompt = f"{self.system_prompt}\n\nHere is the recipe content to parse:\n{content}\n\nRETURN JSON ONLY."
         
         try:
-            response = self.model.generate_content(prompt)
-            # Gemini text usually contains ```json ... ``` blocks, we need to clean clean it
+            # Enforce JSON mode
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(response_mime_type="application/json")
+            )
+            
             text = response.text
+            # Basic cleanup if model adds markdown blocks despite JSON mode
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
-            elif "```" in text: # Generic code block
+            elif "```" in text: 
                 text = text.split("```")[1].split("```")[0]
             
             data = json.loads(text)
             return RecipeData(**data)
         except Exception as e:
-            # Fallback or error handling
             print(f"AI Parsing failed: {e}")
+            try:
+                print(f"FAILED RAW TEXT: {response.text}")
+            except:
+                pass
             raise ValueError(f"Failed to parse recipe: {e}")
 
-    async def convert_to_thermomix(self, recipe_data: RecipeData) -> RecipeData:
+    async def convert_to_thermomix(self, recipe_data: RecipeData, language: str = "en") -> RecipeData:
         # Create a specialized prompt for conversion
-        conversion_prompt = """
+        conversion_prompt = f"""
         You are an expert Thermomix Recipe Developer.
         Your task is to take a generic recipe and rewrite the steps to be fully compatible with the Thermomix TM6.
         
         INPUT: Generic Recipe JSON
-        OUTPUT: Enhanced Recipe JSON with specific Thermomix settings.
+        OUTPUT: Enhanced Recipe JSON with specific Thermomix settings, TRANSLATED into {{language}}.
         
         INSTRUCTIONS:
-        1. Keep the 'ingredients' list mostly the same, but you may regroup them if the steps require it (e.g. "mill sugar 10 sec / speed 10" might move sugar to step 1).
-        2. Rewrite each 'step' description to use Thermomix terminology (e.g. "Add onion...", "Chop 5 sec/speed 5").
+        1. Keep the 'ingredients' list mostly the same, but you may regroup them if the steps require it.
+        2. Rewrite each 'step' description to use Thermomix terminology.
         3. For each step, explicitly assign:
            - time: e.g. "5 sec", "10 min"
            - temperature: e.g. "100°C", "120°C", "Varoma"
-           - speed: e.g. "Speed 1", "Speed 5", "Speed Spoon" (use reverse implied by context if needed, but JSON only has speed field).
+           - speed: e.g. "Speed 1", "Speed 5", "Speed Spoon" (use reverse implied by context if needed).
            - mode: e.g. "Dough", "Turbo", "Sauté" (only if applicable).
+        4. TRANSLATION: Ensure the Title, Description, Ingredient Names/Notes, and Step Descriptions are in the target language: {language}.
+           - Keep technical Thermomix terms (Varoma, Speed, etc.) in a format appropriate for that language's machine (usually english terms are standard but check language norms).
+           - Set the "language" field in the output JSON to "{language}".
         
         Output must be valid JSON matching the RecipeData schema.
         """
@@ -94,7 +105,12 @@ class AiService:
         prompt = f"{conversion_prompt}\n\nINPUT RECIPE:\n{content}\n\nRETURN JSON ONLY."
 
         try:
-            response = self.model.generate_content(prompt)
+            # Enforce JSON mode
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(response_mime_type="application/json")
+            )
+            
             text = response.text
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
@@ -105,4 +121,8 @@ class AiService:
             return RecipeData(**data)
         except Exception as e:
             print(f"AI Conversion failed: {e}")
+            try:
+                print(f"FAILED RAW TEXT: {response.text}")
+            except:
+                pass
             raise ValueError(f"Failed to convert recipe: {e}")

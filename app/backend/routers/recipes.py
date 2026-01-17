@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
-from app.backend.models import Recipe, RecipeData, ParseRequest, UploadRequest
+from app.backend.models import Recipe, RecipeData, ParseRequest, UploadRequest, RecipeUpdateRequest
 from app.backend.services.recipe_service import RecipeService
 from app.backend.services.ai_service import AiService
 from uuid import UUID
+from app.backend.dependencies import get_current_user_id
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 @router.post("/parse", response_model=RecipeData)
 async def parse_recipe(
     request: ParseRequest,
+    user_id: UUID = Depends(get_current_user_id),
     ai_service: AiService = Depends(get_ai_service)
 ):
     try:
@@ -48,7 +50,7 @@ async def parse_recipe(
 
 @router.get("/", response_model=list[Recipe])
 async def get_recipes(
-    user_id: UUID,  # Passed from frontend for now
+    user_id: UUID = Depends(get_current_user_id),
     service: RecipeService = Depends(get_recipe_service)
 ):
     return await service.get_recipes(user_id)
@@ -56,7 +58,7 @@ async def get_recipes(
 @router.get("/{recipe_id}", response_model=Recipe)
 async def get_recipe(
     recipe_id: UUID,
-    user_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
     service: RecipeService = Depends(get_recipe_service)
 ):
     recipe = await service.get_recipe(recipe_id, user_id)
@@ -67,7 +69,7 @@ async def get_recipe(
 @router.delete("/{recipe_id}")
 async def delete_recipe(
     recipe_id: UUID,
-    user_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
     service: RecipeService = Depends(get_recipe_service)
 ):
     success = await service.delete_recipe(recipe_id, user_id)
@@ -78,15 +80,34 @@ async def delete_recipe(
 @router.post("/", response_model=Recipe)
 async def create_recipe(
     recipe_data: RecipeData,
-    user_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
     service: RecipeService = Depends(get_recipe_service)
 ):
     return await service.create_recipe(user_id, recipe_data)
 
+@router.put("/{recipe_id}", response_model=Recipe)
+async def update_recipe(
+    recipe_id: UUID,
+    update_data: RecipeUpdateRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    service: RecipeService = Depends(get_recipe_service)
+):
+    updates = update_data.model_dump(exclude_unset=True)
+    if "parsed_data" in updates:
+        updates["parsed_data"] = update_data.parsed_data.model_dump(mode='json')
+    if "thermomix_data" in updates:
+        updates["thermomix_data"] = update_data.thermomix_data.model_dump(mode='json')
+        
+    try:
+        return await service.update_recipe(recipe_id, user_id, updates)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Recipe not found or update failed")
+
 @router.post("/{recipe_id}/convert", response_model=Recipe)
 async def convert_recipe_to_thermomix(
     recipe_id: UUID,
-    user_id: UUID,
+    language: str = "en",
+    user_id: UUID = Depends(get_current_user_id),
     service: RecipeService = Depends(get_recipe_service),
     ai_service: AiService = Depends(get_ai_service)
 ):
@@ -96,7 +117,7 @@ async def convert_recipe_to_thermomix(
         raise HTTPException(status_code=404, detail="Recipe not found")
         
     # 2. Convert Data
-    thermomix_data = await ai_service.convert_to_thermomix(recipe.parsed_data)
+    thermomix_data = await ai_service.convert_to_thermomix(recipe.parsed_data, language=language)
     
     # 3. Update DB
     updated_recipe = await service.update_thermomix_data(recipe_id, user_id, thermomix_data)
@@ -106,17 +127,18 @@ async def convert_recipe_to_thermomix(
 @router.post("/upload")
 async def upload_to_cookidoo(
     request: UploadRequest,
+    user_id: UUID = Depends(get_current_user_id),
     service: RecipeService = Depends(get_recipe_service)
 ):
     # 1. Get Recipe Data
-    recipe = await service.get_recipe(request.recipe_id, request.user_id)
+    recipe = await service.get_recipe(request.recipe_id, user_id)
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
 
     # 2. Get Cookidoo Session
     from app.backend.services.auth_service import AuthService
     auth_service = AuthService()
-    cookies = await auth_service.get_cookidoo_cookies(request.user_id)
+    cookies = await auth_service.get_cookidoo_cookies(user_id)
     
     if not cookies:
         raise HTTPException(status_code=401, detail="Not authenticated with Cookidoo. Please login again.")

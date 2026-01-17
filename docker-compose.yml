@@ -1,0 +1,12 @@
+services:
+  cheflens:
+    build: .
+    container_name: cheflens_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # Environment variables can also be overridden here if needed
+    environment:
+      - PORT=8000
+    restart: unless-stopped

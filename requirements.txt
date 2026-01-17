@@ -10,3 +10,5 @@ python-dotenv
 httpx
 requests
 python-multipart
+pyjwt
+beautifulsoup4

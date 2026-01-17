@@ -10,6 +10,7 @@ class Ingredient(BaseModel):
     note: Optional[str] = None
 
 class Step(BaseModel):
+    id: Optional[str] = None
     description: str
     temperature: Optional[str] = None # e.g. "100°C" or "Varoma"
     time: Optional[str] = None        # e.g. "5 min"
@@ -53,3 +54,8 @@ class UploadRequest(BaseModel):
     recipe_id: UUID
     user_id: UUID
     target_recipe_id: Optional[str] = None
+
+class RecipeUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    parsed_data: Optional[RecipeData] = None
+    thermomix_data: Optional[RecipeData] = None

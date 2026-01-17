@@ -7,8 +7,10 @@ import { WizardStep2_Review } from './components/wizard/WizardStep2_Review';
 import { WizardStep3_Thermomix } from './components/wizard/WizardStep3_Thermomix';
 import { WizardStep4_Upload } from './components/wizard/WizardStep4_Upload';
 import { LibraryLayout } from './components/library/LibraryLayout';
+import { Settings } from './components/settings/Settings';
+import { LoginPage } from './components/auth/LoginPage';
 import { supabase } from './utils/supabase';
-import { LogOut, Loader2, User as UserIcon, PlusCircle, BookOpen, Settings } from 'lucide-react';
+import { LogOut, Loader2, User as UserIcon, PlusCircle, BookOpen, Settings as SettingsIcon } from 'lucide-react';
 
 function App() {
   const { user, loading } = useAuth();
@@ -17,14 +19,6 @@ function App() {
   // Navigation State
   const [currentView, setCurrentView] = useState<'wizard' | 'library' | 'settings'>('wizard');
 
-  const handleLogin = async () => {
-    const email = prompt("Enter Email:");
-    const password = prompt("Enter Password:");
-    if (email && password) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert(error.message);
-    }
-  };
 
   const handleLogout = () => supabase.auth.signOut();
 
@@ -33,20 +27,7 @@ function App() {
   }
 
   if (!user) {
-    return (
-      <div className="h-screen w-full bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-xl shadow-xl w-96 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">ChefLens</h1>
-          <p className="text-gray-500 mb-8">Please login to continue</p>
-          <button
-            onClick={handleLogin}
-            className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-          >
-            Sign In
-          </button>
-        </div>
-      </div>
-    );
+    return <LoginPage />;
   }
 
   return (
@@ -76,7 +57,7 @@ function App() {
             onClick={() => setCurrentView('settings')}
             className={`flex items-center px-4 py-3 rounded-lg font-medium cursor-pointer transition-colors ${currentView === 'settings' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
           >
-            <Settings size={20} className="mr-3" />
+            <SettingsIcon size={20} className="mr-3" />
             Settings
           </div>
         </nav>
@@ -97,6 +78,9 @@ function App() {
             <LogOut size={16} className="mr-2" />
             Sign Out
           </button>
+          <div className="mt-2 text-center">
+            <p className="text-xs text-gray-400">v{import.meta.env.VITE_APP_VERSION || '0.1.0'}</p>
+          </div>
         </div>
       </aside>
 
@@ -116,9 +100,7 @@ function App() {
         )}
 
         {currentView === 'settings' && (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Settings feature coming soon...
-          </div>
+          <Settings />
         )}
       </main>
     </div>
